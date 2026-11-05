@@ -63,3 +63,54 @@ def register_member(request):
         serializer.errors,
         status=status.HTTP_400_BAD_REQUEST
     )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def verify_email(request):
+
+    email = request.data.get('email', '').strip().lower()
+
+    otp = request.data.get('otp', '')
+
+    if not email or not otp:
+        return Response({
+            'message': 'Email and OTP are required.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    if not otp.isdigit() or len(otp) != 6:
+        return Response({
+            'message': 'OTP must contain exactly 6 digits.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        member = Member.objects.get(email__iexact=email)
+
+    except Member.DoesNotExist:
+        return Response({
+            'message': 'Invalid verification request.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    if member.is_active:
+        return Response({
+            'message': 'Email already verified.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    success, message = verify_member_otp(
+        member,
+        otp,
+        EmailOTP.REGISTRATION
+    )
+
+    if not success:
+        return Response({
+            'message': message
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    member.is_active = True
+
+    member.save(update_fields=['is_active'])
+
+    return Response({
+        'message': 'Email verified successfully. You can now log in.'
+    }, status=status.HTTP_200_OK)
