@@ -114,3 +114,65 @@ def verify_email(request):
     return Response({
         'message': 'Email verified successfully. You can now log in.'
     }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def login_member(request):
+
+    serializer = MemberLoginSerializer(
+        data=request.data
+    )
+
+    if not serializer.is_valid():
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    email = serializer.validated_data['email']
+
+    password = serializer.validated_data['password']
+
+    try:
+        member = Member.objects.get(
+            email__iexact=email
+        )
+
+    except Member.DoesNotExist:
+        return Response({
+            'message': 'Invalid email or password.'
+        }, status=status.HTTP_401_UNAUTHORIZED)
+
+    if not check_password(password, member.password):
+        return Response({
+            'message': 'Invalid email or password.'
+        }, status=status.HTTP_401_UNAUTHORIZED)
+
+    if not member.is_active:
+        return Response({
+            'message': 'Please verify your email before logging in.'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    refresh = RefreshToken()
+
+    refresh['member_id'] = member.id
+
+    refresh['email'] = member.email
+
+    return Response({
+        'message': 'Login successful',
+
+        'member': {
+            'id': member.id,
+            'first_name': member.first_name,
+            'last_name': member.last_name,
+            'email': member.email,
+            'phone_number': member.phone_number
+        },
+
+        'refresh': str(refresh),
+
+        'access': str(refresh.access_token)
+
+    }, status=status.HTTP_200_OK)
