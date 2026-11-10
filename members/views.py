@@ -323,3 +323,32 @@ def my_membership(request):
         'message': 'Your current membership.',
         'membership': serializer.data
     }, status=status.HTTP_200_OK)
+
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def membership_history(request):
+
+    today = timezone.localdate()
+
+    Membership.objects.filter(
+        member=request.user,
+        status='active',
+        end_date__lt=today
+    ).update(status='expired')
+
+    memberships = Membership.objects.filter(
+        member=request.user
+    ).select_related('plan').order_by('-created_at')
+
+    serializer = MembershipSerializer(
+        memberships,
+        many=True
+    )
+
+    return Response({
+        'message': 'Your membership history.',
+        'total_memberships': memberships.count(),
+        'history': serializer.data
+    }, status=status.HTTP_200_OK)
