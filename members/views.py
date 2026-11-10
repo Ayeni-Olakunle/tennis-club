@@ -176,3 +176,43 @@ def login_member(request):
         'access': str(refresh.access_token)
 
     }, status=status.HTTP_200_OK)
+
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def forgot_password(request):
+
+    email = request.data.get('email', '').strip().lower()
+
+    if not email:
+        return Response({
+            'message': 'Email is required.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        member = Member.objects.get(
+            email__iexact=email,
+            is_active=True
+        )
+
+    except Member.DoesNotExist:
+        # Same response prevents revealing whether an account exists.
+        return Response({
+            'message': 'If the account exists, a password reset OTP will be sent.'
+        }, status=status.HTTP_200_OK)
+
+    try:
+        send_member_otp(
+            member,
+            EmailOTP.PASSWORD_RESET
+        )
+
+    except Exception:
+        return Response({
+            'message': 'Unable to send OTP. Please try again.'
+        }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    return Response({
+        'message': 'If the account exists, a password reset OTP will be sent.'
+    }, status=status.HTTP_200_OK)
