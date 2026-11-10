@@ -289,3 +289,37 @@ def membership_plans(request):
         'message': 'Available membership plans.',
         'plans': serializer.data
     }, status=status.HTTP_200_OK)
+
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_membership(request):
+
+    today = timezone.localdate()
+
+    # Automatically mark expired memberships.
+    Membership.objects.filter(
+        member=request.user,
+        status='active',
+        end_date__lt=today
+    ).update(status='expired')
+
+    membership = Membership.objects.filter(
+        member=request.user,
+        status='active',
+        end_date__gte=today
+    ).select_related('plan').order_by('-end_date').first()
+
+    if not membership:
+        return Response({
+            'message': 'You do not have an active membership.',
+            'membership': None
+        }, status=status.HTTP_200_OK)
+
+    serializer = MembershipSerializer(membership)
+
+    return Response({
+        'message': 'Your current membership.',
+        'membership': serializer.data
+    }, status=status.HTTP_200_OK)
