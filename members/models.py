@@ -87,7 +87,7 @@ class Membership(models.Model):
         related_name='memberships'
     )
 
-    start_date = models.DateField(default=timezone.now)
+    start_date = models.DateField(default=timezone.localdate)
     end_date = models.DateField()
 
     status = models.CharField(

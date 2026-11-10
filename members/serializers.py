@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Member
+from .models import Member, MembershipPlan, Membership
 
 class MemberRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
@@ -47,3 +47,56 @@ class MemberLoginSerializer(serializers.Serializer):
 
     def validate_email(self, value):
         return value.strip().lower()
+
+
+
+class MembershipPlanSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = MembershipPlan
+        fields = [
+            'id',
+            'name',
+            'description',
+            'duration_days',
+            'price',
+        ]
+
+
+class MembershipSerializer(serializers.ModelSerializer):
+
+    plan = MembershipPlanSerializer(read_only=True)
+    member_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Membership
+        fields = [
+            'id',
+            'member_name',
+            'plan',
+            'start_date',
+            'end_date',
+            'status',
+            'created_at',
+        ]
+
+    def get_member_name(self, obj):
+        return f"{obj.member.first_name} {obj.member.last_name}"
+
+
+class RenewMembershipSerializer(serializers.Serializer):
+
+    plan_id = serializers.IntegerField()
+
+    def validate_plan_id(self, value):
+        try:
+            plan = MembershipPlan.objects.get(
+                id=value,
+                is_active=True
+            )
+        except MembershipPlan.DoesNotExist:
+            raise serializers.ValidationError(
+                "This membership plan does not exist or is unavailable."
+            )
+
+        return value
