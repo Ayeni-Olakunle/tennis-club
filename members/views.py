@@ -12,6 +12,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
+from django.db import transaction
+from datetime import timedelta
 from .models import Member, EmailOTP, MembershipPlan, Membership
 from .serializers import (
     MemberRegistrationSerializer,
@@ -352,3 +354,76 @@ def membership_history(request):
         'total_memberships': memberships.count(),
         'history': serializer.data
     }, status=status.HTTP_200_OK)
+
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def renew_membership(request):
+
+    serializer = RenewMembershipSerializer(data=request.data)
+
+    if not serializer.is_valid():
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    plan_id = serializer.validated_data['plan_id']
+
+    try:
+        plan = MembershipPlan.objects.get(
+            id=plan_id,
+            is_active=True
+        )
+    except MembershipPlan.DoesNotExist:
+        return Response(
+            {'error': 'Selected membership plan is unavailable.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    today = timezone.localdate()
+
+    with transaction.atomic():
+
+        # Mark previous expired memberships.
+        Membership.objects.filter(
+            member=request.user,
+            status='active',
+            end_date__lt=today
+        ).update(status='expired')
+
+        # Find the latest membership that has not been cancelled.
+        previous_membership = Membership.objects.filter(
+            member=request.user
+        ).exclude(
+            status='cancelled'
+        ).order_by('-end_date').first()
+
+        # Continue after the previous expiry date if it is still valid.
+        if (
+            previous_membership
+            and previous_membership.end_date >= today
+        ):
+            start_date = previous_membership.end_date + timedelta(days=1)
+        else:
+            start_date = today
+
+        end_date = start_date + timedelta(
+            days=plan.duration_days - 1
+        )
+
+        new_membership = Membership.objects.create(
+            member=request.user,
+            plan=plan,
+            start_date=start_date,
+            end_date=end_date,
+            status='active'
+        )
+
+    result = MembershipSerializer(new_membership)
+
+    return Response({
+        'message': 'Membership successfully purchased or renewed.',
+        'membership': result.data
+    }, status=status.HTTP_201_CREATED)

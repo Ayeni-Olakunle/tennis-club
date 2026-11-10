@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import register_member, verify_email, login_member, forgot_password, reset_password, membership_plans, my_membership, membership_history
+from .views import register_member, verify_email, login_member, forgot_password, reset_password, membership_plans, my_membership, membership_history, renew_membership
 
 urlpatterns = [
     path('register/', register_member, name='register_member'),
@@ -10,4 +10,5 @@ urlpatterns = [
     path('membership-plans/', membership_plans, name='membership_plans'),
     path('my-membership/', my_membership, name='my_membership'),
     path('membership-history/', membership_history, name='membership_history'),
+    path('renew-membership/', renew_membership, name='renew_membership'),
 ]
