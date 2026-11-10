@@ -12,10 +12,13 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
-from .models import Member, EmailOTP
+from .models import Member, EmailOTP, MembershipPlan, Membership
 from .serializers import (
     MemberRegistrationSerializer,
-    MemberLoginSerializer
+    MemberLoginSerializer,
+    MembershipPlanSerializer,
+    MembershipSerializer,
+    RenewMembershipSerializer
 )
 from .utils import (
     send_member_otp,
@@ -265,3 +268,24 @@ def reset_password(request):
         {'message': 'Password reset successfully.'},
         status=status.HTTP_200_OK
     )
+
+
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def membership_plans(request):
+
+    plans = MembershipPlan.objects.filter(
+        is_active=True
+    ).order_by('price')
+
+    serializer = MembershipPlanSerializer(
+        plans,
+        many=True
+    )
+
+    return Response({
+        'message': 'Available membership plans.',
+        'plans': serializer.data
+    }, status=status.HTTP_200_OK)

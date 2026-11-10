@@ -15,6 +15,10 @@ class Member(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=False)
 
+    @property
+    def is_authenticated(self):
+        return True
+
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
 
