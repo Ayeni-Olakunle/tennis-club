@@ -216,3 +216,52 @@ def forgot_password(request):
     return Response({
         'message': 'If the account exists, a password reset OTP will be sent.'
     }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def reset_password(request):
+
+    if not isinstance(request.data, dict):
+        return Response(
+            {'error': 'Request body must be a JSON object.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    email = request.data.get('email', '').strip().lower()
+    otp = request.data.get('otp', '').strip()
+    new_password = request.data.get('new_password', '')
+
+    if not email or not otp or not new_password:
+        return Response(
+            {'error': 'Email, OTP and new password are required.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        member = Member.objects.get(email=email, is_active=True)
+    except Member.DoesNotExist:
+        return Response(
+            {'error': 'Invalid email or OTP.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if len(new_password) < 8:
+        return Response(
+            {'error': 'Password must contain at least 8 characters.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if not verify_member_otp(member, otp, 'password_reset'):
+        return Response(
+            {'error': 'Invalid or expired OTP.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    member.password = make_password(new_password)
+    member.save(update_fields=['password'])
+
+    return Response(
+        {'message': 'Password reset successfully.'},
+        status=status.HTTP_200_OK
+    )
